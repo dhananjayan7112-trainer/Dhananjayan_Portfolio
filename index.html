@@ -10,6 +10,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+
+  <style>
+    .journal-section { position: relative; }
+    .journal-intro { color: var(--muted, #9ca3af); margin-top: 12px; max-width: 650px; line-height: 1.7; }
+    .journal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-top:32px; }
+    .journal-card { overflow:hidden; border:1px solid rgba(148,163,184,.2); border-radius:18px; background:var(--card, rgba(255,255,255,.04)); transition:transform .25s ease,border-color .25s ease; }
+    .journal-card:hover { transform:translateY(-5px); border-color:rgba(59,130,246,.55); }
+    .journal-card img { display:block; width:100%; height:220px; object-fit:cover; background:#182235; }
+    .journal-card-body { padding:22px; }
+    .journal-meta { color:#60a5fa; font-size:.82rem; font-weight:700; letter-spacing:.04em; margin-bottom:9px; }
+    .journal-card h3 { color:var(--text, #f8fafc); font-size:1.2rem; margin:0 0 10px; }
+    .journal-card p { color:var(--muted, #aab4c4); line-height:1.65; margin:0 0 14px; }
+    .journal-location { color:var(--muted, #aab4c4); font-size:.9rem; }
+    .journal-report { display:inline-block; margin-top:14px; color:#60a5fa; text-decoration:none; font-weight:700; }
+    .journal-more-wrap { display:flex; justify-content:center; margin-top:32px; }
+    .journal-more-btn { display:inline-flex; gap:12px; align-items:center; padding:14px 25px; border-radius:999px; background:#2563eb; color:#fff; text-decoration:none; font-weight:700; transition:.2s ease; }
+    .journal-more-btn:hover { background:#1d4ed8; transform:translateY(-2px); }
+    .journal-loading,.journal-empty { grid-column:1/-1; color:var(--muted,#aab4c4); padding:24px; text-align:center; }
+    @media(max-width:700px) { .journal-grid { grid-template-columns:1fr; } .journal-card img { height:200px; } }
+  </style>
 </head>
 <body>
 
@@ -204,21 +224,18 @@
     </div>
   </section>
 
-  <section class="section training-section" id="training">
+  <section class="section journal-section" id="training">
     <div class="section-head reveal">
-      <p class="eyebrow">05 — DAILY TRAINING ACTIVITIES</p>
-      <h2>My training <span>journal.</span></h2>
-      <p class="training-intro">A record of STEM sessions, school visits and hands-on learning activities.</p>
+      <p class="eyebrow">05 — TRAINING JOURNAL</p>
+      <h2>Learning through <span>experience.</span></h2>
+      <p class="journal-intro">A glimpse of my STEM training sessions, school visits and hands-on learning activities.</p>
     </div>
-    <div class="training-toolbar reveal">
-      <label class="sr-only" for="trainingSearch">Search training activities</label>
-      <input id="trainingSearch" type="search" placeholder="Search school, topic or location..." />
-      <span id="trainingCount" aria-live="polite">Loading activities…</span>
+    <div class="journal-grid" id="homeJournalGrid">
+      <p class="journal-loading">Loading my latest journal entries...</p>
     </div>
-    <div class="training-grid" id="trainingGrid" aria-live="polite">
-      <p class="training-status">Connect your Google Sheet to display training activities here.</p>
+    <div class="journal-more-wrap">
+      <a href="training-journal.html" class="journal-more-btn">Explore More Details <span aria-hidden="true">↗</span></a>
     </div>
-    <p class="training-note">Documenting my journey as a STEM Educator through workshops, innovative projects, and practical learning sessions.</p>
   </section>
 
   <section class="section projects-section" id="projects">
@@ -271,6 +288,39 @@
 </footer>
 
 <button class="top-btn" id="topBtn" aria-label="Back to top">↑</button>
+<script>
+(() => {
+  const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRlr_Ez1GvgYhBowF4OGKRHFnOjW1VO8ckz-uh-FlkpNs-CdgAIHagHPMor00yWugVVNgn32lkIRIbx/pub?gid=2006043793&single=true&output=csv';
+  const grid = document.getElementById('homeJournalGrid');
+  if (!grid) return;
+  function parseCSV(text) {
+    const rows=[]; let row=[], cell='', quoted=false;
+    for(let i=0;i<text.length;i++){ const c=text[i], n=text[i+1];
+      if(c==='"' && quoted && n==='"'){cell+='"';i++;}
+      else if(c==='"'){quoted=!quoted;}
+      else if(c===',' && !quoted){row.push(cell);cell='';}
+      else if((c==='\n'||c==='\r')&&!quoted){ if(c==='\r'&&n==='\n')i++; row.push(cell); if(row.some(v=>v.trim()))rows.push(row); row=[];cell='';}
+      else cell+=c;
+    }
+    row.push(cell); if(row.some(v=>v.trim()))rows.push(row);
+    const headers=(rows.shift()||[]).map(h=>h.trim());
+    return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]||'').trim()])));
+  }
+  const esc = value => String(value||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function card(item){
+    const title=item.Topic||item.Title||'STEM Training Activity';
+    const date=item.Date||''; const place=[item.School,item.Location].filter(Boolean).join(' · ');
+    const photo=item.PhotoURL||item.PhotoUrl||item.ImageURL||''; const desc=item.Description||'';
+    return `<article class="journal-card">${photo?`<img src="${esc(photo)}" alt="${esc(title)}" loading="lazy" onerror="this.style.display='none'">`:''}<div class="journal-card-body"><div class="journal-meta">${esc(date)}</div><h3>${esc(title)}</h3>${place?`<div class="journal-location">${esc(place)}</div>`:''}<p>${esc(desc)}</p>${item.ReportURL?`<a class="journal-report" href="${esc(item.ReportURL)}" target="_blank" rel="noopener">View session report ↗</a>`:''}</div></article>`;
+  }
+  fetch(csvUrl).then(r=>{if(!r.ok)throw new Error('Could not load the journal');return r.text();}).then(text=>{
+    const entries=parseCSV(text).filter(x=>Object.values(x).some(v=>v));
+    entries.sort((a,b)=>{const da=Date.parse(a.Date),db=Date.parse(b.Date);return (isNaN(db)?0:db)-(isNaN(da)?0:da);});
+    const latest=entries.slice(0,2);
+    grid.innerHTML=latest.length?latest.map(card).join(''):'<p class="journal-empty">Journal entries will appear here soon.</p>';
+  }).catch(()=>{grid.innerHTML='<p class="journal-empty">Unable to load journal entries right now. Please try again later.</p>';});
+})();
+</script>
 <script src="script.js"></script>
 </body>
 </html>
